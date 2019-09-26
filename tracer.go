@@ -154,8 +154,6 @@ func (tracer *tracerImpl) Inject(sc opentracing.SpanContext, format interface{},
 	switch format {
 	case opentracing.TextMap, opentracing.HTTPHeaders:
 		return theTextMapPropagator.Inject(sc, carrier)
-	case opentracing.Binary:
-		return theBinaryPropagator.Inject(sc, carrier)
 	}
 	return opentracing.ErrUnsupportedFormat
 }
@@ -170,8 +168,6 @@ func (tracer *tracerImpl) Extract(format interface{}, carrier interface{}) (open
 	switch format {
 	case opentracing.TextMap, opentracing.HTTPHeaders:
 		return theTextMapPropagator.Extract(carrier)
-	case opentracing.Binary:
-		return theBinaryPropagator.Extract(carrier)
 	}
 	return nil, opentracing.ErrUnsupportedFormat
 }

@@ -1,4 +1,4 @@
-package splunk_tracer
+package splunktracing
 
 import (
 	"runtime"

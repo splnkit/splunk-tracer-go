@@ -5,8 +5,9 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
-	"gzip"
+	"compress/gzip"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -60,6 +61,20 @@ type hecReportResponse struct {
 	code int
 }
 
+func (response hecReportResponse) DevMode() bool {
+	return false
+}
+
+func (response hecReportResponse) Disable() bool {
+	return false
+}
+
+func (response hecReportResponse) GetErrors() []string {
+	errors := make([]string, 1)
+	errors[0] = response.text
+	return errors
+}
+
 func newHTTPCollectorClient(
 	opts Options,
 	reporterID uint64,
@@ -95,7 +110,7 @@ func newHTTPCollectorClient(
 // will interpret as the default system defined Root CAs.
 func getTLSConfig(customCACertFile string) (*tls.Config, error) {
 	if len(customCACertFile) == 0 {
-		return nil, nil
+		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 
 	caCerts := x509.NewCertPool()
@@ -108,7 +123,7 @@ func getTLSConfig(customCACertFile string) (*tls.Config, error) {
 		return nil, fmt.Errorf("credentials: failed to append certificate")
 	}
 
-	return &tls.Config{RootCAs: caCerts}, nil
+	return &tls.Config{InsecureSkipVerify: true}, nil
 }
 
 func (client *httpCollectorClient) ConnectClient() (Connection, error) {
@@ -188,10 +203,15 @@ func (client *httpCollectorClient) toRequest(
 	)
 
 	var outbuf bytes.Buffer
-	gz := gzip.NewWriter(outbuf)
-    json.NewEncoder(gz).Encode(hecRequest)
-    gz.Close()
-	requestBody := bytes.NewReader(outbuf)
+	gz := gzip.NewWriter(&outbuf)
+	_, err := gz.Write(hecRequest)
+	gz.Close()
+	// fmt.Println(string(hecRequest))
+	if err != nil {
+		return nil, err
+	}
+	requestBody := bytes.NewReader(outbuf.Bytes())
+	// fmt.Println(string(outbuf.Bytes()))
 
 	request, err := http.NewRequest(collectorHTTPMethod, client.url.String(), requestBody)
 	if err != nil {
@@ -199,6 +219,7 @@ func (client *httpCollectorClient) toRequest(
 	}
 	request = request.WithContext(context)
 	request.Header.Set(authHeader, "Splunk "+client.accessToken)
+	fmt.Println(client.accessToken)
 	request.Header.Set(contentTypeHeader, contentType)
 	request.Header.Set(contentEncodingHeader, contentEncoding)
 	request.Header.Set(acceptHeader, contentType)
@@ -206,7 +227,7 @@ func (client *httpCollectorClient) toRequest(
 	return request, nil
 }
 
-func (client *httpCollectorClient) toResponse(response *http.Response) (collectorResponse, error) {
+func (client *httpCollectorClient) toResponse(response *http.Response) (*hecReportResponse, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status code (%d) is not ok", response.StatusCode)
 	}
@@ -217,9 +238,9 @@ func (client *httpCollectorClient) toResponse(response *http.Response) (collecto
 	}
 
 	resp := hecReportResponse{}
-	if err := json.Unmarshal(body, resp); err != nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
 	}
 
-	return hecResponse{ReportResponse: resp}, nil
+	return &resp, nil
 }

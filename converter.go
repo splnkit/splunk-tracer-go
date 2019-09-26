@@ -1,19 +1,25 @@
 package splunktracing
 
 import (
-	"fmt"
-	"reflect"
+	"bytes"
+	"encoding/json"
+	// "fmt"
+	"strings"
 	"time"
 
-	// "github.com/gogo/protobuf/types"
-	// "github.com/lightstep/lightstep-tracer-common/golang/gogo/collectorpb"
-	"github.com/opentracing/opentracing-go"
+	// "github.com/opentracing/opentracing-go"
 )
 
 type hecConverter struct {
 	verbose        bool
 	maxLogKeyLen   int // see GrpcOptions.MaxLogKeyLen
 	maxLogValueLen int // see GrpcOptions.MaxLogValueLen
+}
+
+type splLog struct {
+	timestamp          time.Time
+	span_id            string
+	trace_id		   string
 }
 
 func newHECConverter(options Options) *hecConverter {
@@ -28,155 +34,98 @@ func (converter *hecConverter) toReportRequest(
 	reporterID uint64,
 	attributes map[string]string,
 	buffer *reportBuffer,
-) *collectorpb.ReportRequest {
-	return &collectorpb.ReportRequest{
-		Spans:           converter.toSpans(buffer),
-		InternalMetrics: converter.toInternalMetrics(buffer),
-	}
-
+) []byte {
+	return bytes.Join(converter.toSpans(buffer, attributes), []byte("\n"))
 }
 
-func (converter *hecConverter) toReporter(reporterID uint64, attributes map[string]string) *collectorpb.Reporter {
-	return &collectorpb.Reporter{
-		ReporterId: reporterID,
-		Tags:       converter.toFields(attributes),
-	}
-}
+// func (converter *hecConverter) toReporter(reporterID uint64, attributes map[string]string) *collectorpb.Reporter {
+// 	return &collectorpb.Reporter{
+// 		ReporterId: reporterID,
+// 		Tags:       converter.toFields(attributes),
+// 	}
+// }
 
-func (converter *hecConverter) toAuth(accessToken string) *collectorpb.Auth {
-	return &collectorpb.Auth{
-		AccessToken: accessToken,
-	}
-}
-
-func (converter *hecConverter) toSpans(buffer *reportBuffer) []*collectorpb.Span {
-	spans := make([]*collectorpb.Span, len(buffer.rawSpans))
+func (converter *hecConverter) toSpans(buffer *reportBuffer, attributes map[string]string) [][]byte {
+	spans := make([][]byte, len(buffer.rawSpans))
 	for i, span := range buffer.rawSpans {
-		spans[i] = converter.toSpan(span, buffer)
+		spans[i] = converter.toSpan(span, buffer, attributes)
 	}
 	return spans
 }
 
-func (converter *hecConverter) toSpan(span RawSpan, buffer *reportBuffer) *collectorpb.Span {
-	return &collectorpb.Span{
-		SpanContext:    converter.toSpanContext(&span.Context),
-		OperationName:  span.Operation,
-		References:     converter.toReference(span.ParentSpanID),
-		StartTimestamp: converter.toTimestamp(span.Start),
-		DurationMicros: converter.fromDuration(span.Duration),
-		Tags:           converter.fromTags(span.Tags),
-		Logs:           converter.toLogs(span.Logs, buffer),
+func (converter *hecConverter) toSpan(span RawSpan, buffer *reportBuffer, attributes map[string]string) []byte {
+	span_map := make(map[string]interface{})
+	if span.ParentSpanID == 0 {
+		span_map["parent_span_id"] = nil
+	} else {
+		span_map["parent_span_id"] = span.ParentSpanID
 	}
-}
+	span_map["trace_id"] 				= &span.Context.TraceID
+	span_map["span_id"] 				= &span.Context.SpanID
+	span_map["operation_name"] 			= span.Operation
+	// span_map["parent_span_id"] 			= &psi// span.ParentSpanID
+	span_map["timestamp"]				= converter.toTimestamp(span.Start)
+	span_map["duration"] 				= converter.fromDuration(span.Duration)
+	span_map["tags"] 					= make(map[string]interface{})
+	span_map["baggage"] 				= &span.Context.Baggage
+	// span_map["Logs"] 					= converter.toLogs(span.Logs, buffer)
 
-func (converter *hecConverter) toInternalMetrics(buffer *reportBuffer) *collectorpb.InternalMetrics {
-	return &collectorpb.InternalMetrics{
-		StartTimestamp: converter.toTimestamp(buffer.reportStart),
-		DurationMicros: converter.fromTimeRange(buffer.reportStart, buffer.reportEnd),
-		Counts:         converter.toMetricsSample(buffer),
-	}
-}
-
-func (converter *hecConverter) toMetricsSample(buffer *reportBuffer) []*collectorpb.MetricsSample {
-	return []*collectorpb.MetricsSample{
-		{
-			Name:  spansDropped,
-			Value: &collectorpb.MetricsSample_IntValue{IntValue: buffer.droppedSpanCount},
-		},
-		{
-			Name:  logEncoderErrors,
-			Value: &collectorpb.MetricsSample_IntValue{IntValue: buffer.logEncoderErrorCount},
-		},
-	}
-}
-
-func (converter *hecConverter) fromTags(tags opentracing.Tags) []*collectorpb.KeyValue {
-	fields := make([]*collectorpb.KeyValue, 0, len(tags))
-	for key, tag := range tags {
-		fields = append(fields, converter.toField(key, tag))
-	}
-	return fields
-}
-
-func (converter *hecConverter) toField(key string, value interface{}) *collectorpb.KeyValue {
-	field := collectorpb.KeyValue{Key: key}
-	reflectedValue := reflect.ValueOf(value)
-	switch reflectedValue.Kind() {
-	case reflect.String:
-		field.Value = &collectorpb.KeyValue_StringValue{StringValue: reflectedValue.String()}
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		field.Value = &collectorpb.KeyValue_IntValue{IntValue: reflectedValue.Convert(intType).Int()}
-	case reflect.Float32, reflect.Float64:
-		field.Value = &collectorpb.KeyValue_DoubleValue{DoubleValue: reflectedValue.Float()}
-	case reflect.Bool:
-		field.Value = &collectorpb.KeyValue_BoolValue{BoolValue: reflectedValue.Bool()}
-	default:
-		var s string
-		switch value := value.(type) {
-		case fmt.Stringer:
-			s = value.String()
-		case error:
-			s = value.Error()
-		default:
-			s = fmt.Sprintf("%#v", value)
-			emitEvent(newEventUnsupportedValue(key, value, nil))
-		}
-		field.Value = &collectorpb.KeyValue_StringValue{StringValue: s}
-	}
-	return &field
-}
-
-func (converter *hecConverter) toLogs(records []opentracing.LogRecord, buffer *reportBuffer) []*collectorpb.Log {
-	logs := make([]*collectorpb.Log, len(records))
-	for i, record := range records {
-		logs[i] = converter.toLog(record, buffer)
-	}
-	return logs
-}
-
-func (converter *hecConverter) toLog(record opentracing.LogRecord, buffer *reportBuffer) *collectorpb.Log {
-	log := &collectorpb.Log{
-		Timestamp: converter.toTimestamp(record.Timestamp),
-	}
-	marshalFields(converter, log, record.Fields, buffer)
-	return log
-}
-
-func (converter *hecConverter) toFields(attributes map[string]string) []*collectorpb.KeyValue {
-	tags := make([]*collectorpb.KeyValue, 0, len(attributes))
 	for key, value := range attributes {
-		tags = append(tags, converter.toField(key, value))
+		if strings.HasPrefix(key, "tracer_") || key == "device" || key == "component_name" {
+			span_map[key] = value
+		} else {
+			span_map["tags"].(map[string]interface{})[key] = value
+		}
 	}
-	return tags
+	for key, value := range span.Tags {
+			span_map["tags"].(map[string]interface{})[key] = value
+	}
+	span_thing := make(map[string]interface{})
+	span_thing["time"] = converter.toTimestamp(span.Start)
+	span_thing["sourcetype"] = "splunktracing:span"
+	span_thing["event"] = span_map		
+	span_buffer, _ := json.Marshal(span_thing)
+
+	report_objs := make([][]byte, 1) //report_objs := make([][]byte, len(span.Logs) + 1)
+	report_objs[0] = span_buffer
+	// for idx, record := range span.Logs {
+	// 	log_map := make(map[string]interface{})
+	// 	log_map["timestamp"] = converter.toTimestamp(record.Timestamp)
+	// 	for _, field := range record.Fields {
+	// 		if field.Marshal() {
+	// 			log_map[field.key] = field.numericVal
+	// 		} else {
+	// 			log_map[field.key] = field.stringVal
+	// 		}
+	// 	}
+	// 	log_thing := make(map[string]interface{})
+	// 	log_thing["time"] = converter.toTimestamp(record.Timestamp)
+	// 	log_thing["sourcetype"] = "splunktracing:log"
+	// 	log_thing["event"] = log_map
+	// 	log_buffer, _ := marshalFields(log_thing)
+	// 	report_objs[idx+1] = log_buffer
+	// }
+	return bytes.Join(report_objs, []byte("\n"))
 }
 
-func (converter *hecConverter) toSpanContext(sc *SpanContext) *collectorpb.SpanContext {
-	return &collectorpb.SpanContext{
-		TraceId: sc.TraceID,
-		SpanId:  sc.SpanID,
-		Baggage: sc.Baggage,
-	}
-}
+// func (converter *hecConverter) toLogs(records []opentracing.LogRecord, buffer *reportBuffer) []*collectorpb.Log {
+// 	logs := make([]*collectorpb.Log, len(records))
+// 	for i, record := range records {
+// 		logs[i] = converter.toLog(record, buffer)
+// 	}
+// 	return logs
+// }
 
-func (converter *hecConverter) toReference(parentSpanID uint64) []*collectorpb.Reference {
-	if parentSpanID == 0 {
-		return nil
-	}
-	return []*collectorpb.Reference{
-		{
-			Relationship: collectorpb.Reference_CHILD_OF,
-			SpanContext: &collectorpb.SpanContext{
-				SpanId: parentSpanID,
-			},
-		},
-	}
-}
+// func (converter *hecConverter) toLog(record opentracing.LogRecord, buffer *reportBuffer) *collectorpb.Log {
+// 	log := &collectorpb.Log{
+// 		Timestamp: converter.toTimestamp(record.Timestamp),
+// 	}
+// 	marshalFields(converter, log, record.Fields, buffer)
+// 	return log
+// }
 
-func (converter *hecConverter) toTimestamp(t time.Time) *types.Timestamp {
-	return &types.Timestamp{
-		Seconds: t.Unix(),
-		Nanos:   int32(t.Nanosecond()),
-	}
+func (converter *hecConverter) toTimestamp(t time.Time) float64 {
+	return float64(t.Unix()) + float64(t.Nanosecond())/1000000000
 }
 
 func (converter *hecConverter) fromDuration(d time.Duration) uint64 {

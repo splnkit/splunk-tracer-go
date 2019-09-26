@@ -29,15 +29,15 @@ const (
 	DefaultMaxLogValueLen = 1024
 	DefaultMaxLogsPerSpan = 500
 
-	DefaultGRPCMaxCallSendMsgSizeBytes = math.MaxInt32
+	DefaultMaxCallSendMsgSizeBytes = math.MaxInt32
 )
 
 // Tag and Tracer Attribute keys.
 const (
-	ParentSpanGUIDKey = "parent_span_guid" // ParentSpanGUIDKey is the tag key used to record the relationship between child and parent spans.
+	ParentSpanGUIDKey = "parent_span_id" // ParentSpanGUIDKey is the tag key used to record the relationship between child and parent spans.
 	ComponentNameKey  = "component_name"
 	GUIDKey           = "guid" // <- runtime guid, not span guid
-	HostnameKey       = "hostname"
+	HostnameKey       = "device"
 	CommandLineKey    = "command_line"
 
 	TracerPlatformKey        = "tracer_platform"
@@ -201,7 +201,7 @@ func (opts *Options) Initialize() error {
 	if opts.MaxLogsPerSpan == 0 {
 		opts.MaxLogsPerSpan = DefaultMaxLogsPerSpan
 	}
-	if opts.GRPCMaxCallSendMsgSizeBytes == 0 {
+	if opts.MaxCallSendMsgSizeBytes == 0 {
 		opts.MaxCallSendMsgSizeBytes = DefaultMaxCallSendMsgSizeBytes
 	}
 	if opts.ReportingPeriod == 0 {

@@ -17,8 +17,6 @@ import (
 	"github.com/opentracing/opentracing-go/log"
 )
 
-var accessToken = flag.String("access_token", "", "your Splunk access token")
-
 func subRoutine(ctx context.Context) {
 	trivialSpan, _ := opentracing.StartSpanFromContext(ctx, "test span")
 	defer trivialSpan.Finish()
@@ -44,14 +42,18 @@ func (r *LoggingRecorder) RecordSpan(span splunktracing.RawSpan) {
 }
 
 func main() {
+	accessToken := flag.String("access_token", "", "your Splunk access token")
+	flag.Parse()
 	loggableRecorder := &LoggingRecorder{}
 
 	// Use Splunk as the global OpenTracing Tracer.
-	opentracing.InitGlobalTracer(splunktracing.NewTracer(splunk.Options{
+	opentracing.InitGlobalTracer(splunktracing.NewTracer(splunktracing.Options{
 		AccessToken: *accessToken,
-		Collector:   splunktracing.Endpoint{Host: "localhost", Port: 8360, Plaintext: true},
+		Collector:   splunktracing.Endpoint{Host: "127.0.0.1", Port: 8088, Plaintext: false},
 		Recorder:    loggableRecorder,
 	}))
+
+	fmt.Println(*accessToken)
 
 	// Do something that's traced.
 	subRoutine(context.Background())
