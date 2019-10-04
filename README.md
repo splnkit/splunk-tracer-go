@@ -22,7 +22,7 @@ To initialize a tracer, configure it with a valid Access Token and optional tuni
 ```go
 import (
   "github.com/opentracing/opentracing-go"
-  "github.com/splunk/splunk-tracer-go"
+  "github.com/splnkit/splunk-tracer-go"
 )
 
 func main() {

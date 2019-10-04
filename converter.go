@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	// "fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,10 +59,10 @@ func (converter *hecConverter) toSpan(span RawSpan, buffer *reportBuffer, attrib
 	if span.ParentSpanID == 0 {
 		span_map["parent_span_id"] = nil
 	} else {
-		span_map["parent_span_id"] = span.ParentSpanID
+		span_map["parent_span_id"] = strconv.FormatUint(span.ParentSpanID, 16)
 	}
-	span_map["trace_id"] 				= &span.Context.TraceID
-	span_map["span_id"] 				= &span.Context.SpanID
+	span_map["trace_id"] 				= strconv.FormatUint(span.Context.TraceID, 16)
+	span_map["span_id"] 				= strconv.FormatUint(span.Context.SpanID, 16)
 	span_map["operation_name"] 			= span.Operation
 	// span_map["parent_span_id"] 			= &psi// span.ParentSpanID
 	span_map["timestamp"]				= converter.toTimestamp(span.Start)
@@ -86,25 +87,27 @@ func (converter *hecConverter) toSpan(span RawSpan, buffer *reportBuffer, attrib
 	span_thing["event"] = span_map		
 	span_buffer, _ := json.Marshal(span_thing)
 
-	report_objs := make([][]byte, 1) //report_objs := make([][]byte, len(span.Logs) + 1)
+	// report_objs := make([][]byte, 1) 
+	report_objs := make([][]byte, len(span.Logs) + 1)
 	report_objs[0] = span_buffer
-	// for idx, record := range span.Logs {
-	// 	log_map := make(map[string]interface{})
-	// 	log_map["timestamp"] = converter.toTimestamp(record.Timestamp)
-	// 	for _, field := range record.Fields {
-	// 		if field.Marshal() {
-	// 			log_map[field.key] = field.numericVal
-	// 		} else {
-	// 			log_map[field.key] = field.stringVal
-	// 		}
-	// 	}
-	// 	log_thing := make(map[string]interface{})
-	// 	log_thing["time"] = converter.toTimestamp(record.Timestamp)
-	// 	log_thing["sourcetype"] = "splunktracing:log"
-	// 	log_thing["event"] = log_map
-	// 	log_buffer, _ := marshalFields(log_thing)
-	// 	report_objs[idx+1] = log_buffer
-	// }
+	//
+	for idx, record := range span.Logs {
+		log_map := make(map[string]interface{})
+		log_map["timestamp"] = converter.toTimestamp(record.Timestamp)
+		for k, v := range span_map {
+			if k!="duration" && k!="timestamp" {
+		    	log_map[k] = v
+		    }
+		}
+		log_thing := make(map[string]interface{})
+		log_thing["time"] = converter.toTimestamp(record.Timestamp)
+		log_thing["sourcetype"] = "splunktracing:log"
+		marshalFields(converter, log_map, record.Fields)
+		log_thing["event"] = log_map
+		log_buffer, _ := json.Marshal(log_thing)
+		report_objs[idx+1] = log_buffer
+	}
+	//
 	return bytes.Join(report_objs, []byte("\n"))
 }
 

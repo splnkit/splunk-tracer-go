@@ -3,6 +3,7 @@ package splunktracing
 import (
 	"runtime"
 	"time"
+	"strconv"
 
 	"github.com/splunk/splunk-tracer-go/splunk/rand"
 )
@@ -29,4 +30,9 @@ func genSeededGUID() uint64 {
 func genSeededGUID2() (uint64, uint64) {
 	n1, n2 := randompool.Pick().TwoInt63()
 	return uint64(n1), uint64(n2)
+}
+
+func idToHex(id uint64) string {
+	hex_guid := strconv.FormatInt(id, 16)
+	return hex_guid
 }
