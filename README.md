@@ -4,7 +4,7 @@
 [![MIT license](http://img.shields.io/badge/license-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 
 
-The Splunk distributed tracing library for Go. Modification of original library from Lightstep(http://github.com/lightstep/lightstep-tracer-go).
+The Splunk distributed tracing library for Go.
 
 
 ## Installation
@@ -49,7 +49,7 @@ As part of managing your application lifecycle, the Splunk tracer extends the `o
 import (
   "context"
   "github.com/opentracing/opentracing-go"
-  "github.com/splunk/splunk-tracer-go"
+  "github.com/splnkit/splunk-tracer-go"
 )
 
 func shutdown(ctx context.Context) {
@@ -68,3 +68,19 @@ func shutdown(ctx context.Context) {
 }
 ```
 
+
+
+This library is the Splunk binding for [OpenTracing](http://opentracing.io/). See the [OpenTracing Go API](https://github.com/opentracing/opentracing-go) for additional detail.
+
+## License
+
+The Splunk Tracer for Go is licensed under the MIT License. Details can be found in the LICENSE file.
+
+### Third-party libraries
+
+This is a fork of the Go tracer from Lightstep, which is also licensed under the MIT License. Links to the original repository and license are below:
+
+* [lightstep-tracer-go][lightstep]: [MIT][lightstep-license]
+
+[lightstep]:                      https://github.com/lightstep/lightstep-tracer-go
+[lightstep-license]:              https://github.com/lightstep/lightstep-tracer-go/blob/master/LICENSE
