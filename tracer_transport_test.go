@@ -1,4 +1,4 @@
-package splunktest
+package splunktracing_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/splunk/splunk-tracer-go"
+	. "github.com/splnkit/splunk-tracer-go"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opentracing/opentracing-go"

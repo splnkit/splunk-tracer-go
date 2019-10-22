@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/splunk/splunk-tracer-go"
+	"github.com/splnkit/splunk-tracer-go"
 )
 
 var (

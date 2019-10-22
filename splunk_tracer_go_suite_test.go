@@ -1,4 +1,4 @@
-package splunktest
+package splunktracing_test
 
 import (
 	. "github.com/onsi/ginkgo"

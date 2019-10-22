@@ -1,4 +1,4 @@
-package splunktest
+package splunktracing_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/lightstep/lightstep-tracer-common/golang/gogo/collectorpb"
 	cpbfakes "github.com/lightstep/lightstep-tracer-common/golang/gogo/collectorpb/collectorpbfakes"
-	. "github.com/splunk/splunk-tracer-go"
+	. "github.com/splnkit/splunk-tracer-go"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/opentracing/opentracing-go"

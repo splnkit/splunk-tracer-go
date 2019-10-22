@@ -4,7 +4,7 @@ package splunkfakes
 import (
 	"sync"
 
-	splunktracing "github.com/splunk/splunk-tracer-go"
+	splunktracing "github.com/splnkit/splunk-tracer-go"
 )
 
 type FakeSpanRecorder struct {

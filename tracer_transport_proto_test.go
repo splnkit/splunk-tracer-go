@@ -1,8 +1,8 @@
-package splunktest
+package splunktracing_test
 
 import (
 	"github.com/lightstep/lightstep-tracer-common/golang/gogo/collectorpb"
-	. "github.com/splunk/splunk-tracer-go"
+	. "github.com/splnkit/splunk-tracer-go"
 )
 
 type cpbSpan struct {

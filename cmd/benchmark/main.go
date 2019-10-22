@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/splunk/splunk-tracer-go"
+	"github.com/splnkit/splunk-tracer-go"
 	"github.com/opentracing/opentracing-go"
 )
 

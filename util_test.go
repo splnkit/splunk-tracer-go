@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/splunk/splunk-tracer-go/splunk/rand"
+	"github.com/splnkit/splunk-tracer-go/splunk/rand"
 )
 
 var _ = Describe("GenSeededGUID", func() {

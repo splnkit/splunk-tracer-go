@@ -12,7 +12,7 @@ import (
 	logger "log"
 	"time"
 
-	"github.com/splunk/splunk-tracer-go"
+	"github.com/splnkit/splunk-tracer-go"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 )

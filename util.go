@@ -5,7 +5,7 @@ import (
 	"time"
 	"strconv"
 
-	"github.com/splunk/splunk-tracer-go/splunk/rand"
+	"github.com/splnkit/splunk-tracer-go/splunk/rand"
 )
 
 var (
@@ -33,6 +33,6 @@ func genSeededGUID2() (uint64, uint64) {
 }
 
 func idToHex(id uint64) string {
-	hex_guid := strconv.FormatInt(id, 16)
+	hex_guid := strconv.FormatInt(int64(id), 16)
 	return hex_guid
 }
